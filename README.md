@@ -40,6 +40,8 @@ The substitution box is calculated like so:
 1. For each byte, find the multiplicative inverse of it in GF(2<sup>8</sup>). This can be done using brute force, as it's not too costly (255 values to check, max). The zero byte maps to itself, as it lacks an inverse.
 2. Multiply the resulting byte (i.e. the inverse) by a matrix and add a vector, both which can be found [here](https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf#%5B%7B%22num%22%3A34%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitH%22%7D%2C846%5D) (and an implementation in the `CalculateF` and `CalculateG` functions [here](https://github.com/moserware/AES-Illustrated/blob/master/FiniteFieldMath.cs)).
 
+It can also be found on page 16 of [this report](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf).
+
 #### The shift_rows step
 Here, we perform a so-called cyclic shift on the four **rows** of the matrix. The first row is left unchanged, the second is shifted once to the left, the third two bytes to the left and the fourth three bytes to the left (or one to the right).
 
@@ -49,11 +51,13 @@ In this step, we multiply our matrix with another, predefined [matrix](https://c
 ```
 ff = finitefield
 for each column c:
-    newcol_c[0] = ff.multiply(matrix[0,0], c[0]) &#8853; ff.multiply(matrix[0,1], c[1]) &#8853; [...]
-    newcol_c[1] = ff.multiply(matrix[1,0], c[0]) &#8853; ff.multiply(matrix[1,1], c[1]) &#8853; [...]
-    newcol_c[2] = ff.multiply(matrix[2,0], c[0]) &#8853; ff.multiply(matrix[2,1], c[1]) &#8853; [...]
-    newcol_c[3] = ff.multiply(matrix[3,0], c[0]) &#8853; ff.multiply(matrix[3,1], c[1]) &#8853; [...]
+    newcol_c[0] = ff.multiply(matrix[0,0], c[0]) ⊕ ff.multiply(matrix[0,1], c[1]) ⊕ [...]
+    newcol_c[1] = ff.multiply(matrix[1,0], c[0]) ⊕ ff.multiply(matrix[1,1], c[1]) ⊕ [...]
+    newcol_c[2] = ff.multiply(matrix[2,0], c[0]) ⊕ ff.multiply(matrix[2,1], c[1]) ⊕ [...]
+    newcol_c[3] = ff.multiply(matrix[3,0], c[0]) ⊕ ff.multiply(matrix[3,1], c[1]) ⊕ [...]
 ```
+
+The multiplication step can be a bit tricky, but it's possible to use [this algorithm](https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field) to perform it (which avoids having to manually deal with division by polynomials).
 
 #### Final step
 For the final step in each round, we XOR this current matrix (represented now as 128 bits) with the current round key, i.e. after the first application of `sub_bytes`, `shift_rows` and `mix_columns`, we XOR the output with round key 1 (note that round key 0 is used for XORing with the initial input before passing it into the round permutation).
