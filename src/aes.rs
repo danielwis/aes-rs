@@ -154,9 +154,10 @@ pub fn mix_columns(state: &mut [[u8; 4]; 4]) {
     // 1 2 3 1
     // 1 1 2 3
     // 3 1 1 2
-    // i.e. the sequence below shifted one step
-    // right for every row
-    let matrix_arr: [u8; 4] = [2, 3, 1, 1];
+    // i.e. the sequence [2, 3, 1, 1] shifted one step
+    // right for every row. This means that each column
+    // in our state can be "shifted down" by one while
+    // we just multiply with the fixed constants of the top row.
 
     for col in 0..4 {
         // Preserve the column since we'll be changing it
@@ -167,7 +168,10 @@ pub fn mix_columns(state: &mut [[u8; 4]; 4]) {
         }
 
         for row in 0..4 {
-            state[col][row] = finite_field_mult(intact_column[row], matrix_arr[(row + col) % 4]);
+            state[col][row] = finite_field_mult(intact_column[row], 0x2)
+                ^ finite_field_mult(intact_column[(row + 1) % 4], 0x3)
+                ^ finite_field_mult(intact_column[(row + 2) % 4], 0x1)
+                ^ finite_field_mult(intact_column[(row + 3) % 4], 0x1);
         }
     }
 }
