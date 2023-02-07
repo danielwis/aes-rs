@@ -16,25 +16,154 @@ pub const SBOX: [u8; 256] = [
     0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 ];
-pub const round_constants: [u8; 10] = [0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+pub const ROUND_CONSTANTS: [u8; 10] = [0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
 
 pub type Word = [u8; 4];
 
-pub fn encrypt(chunk: &[u8]) -> [u8; 16] {
-    unimplemented!();
+pub struct AES {
+    round_keys: [[u8; 4]; 44],
+    pub encrypt: fn(&AES, &[u8]) -> [u8; 16],
+    encrypt_block: fn(&AES, &mut [[u8; 4]; 4]),
 }
 
-/// Just returns the SBOX value for the argument
-pub fn substitute_bytes(byte: u8) -> u8 {
-    SBOX[byte as usize]
+impl AES {
+    pub fn new(keys: [Word; 44]) -> AES {
+        AES {
+            round_keys: keys,
+            encrypt: aes_enc,
+            encrypt_block: aes_enc_block,
+        }
+    }
 }
 
-pub fn shift_rows() {
-    unimplemented!()
+/// Reformats one chunk of length 16 into a state matrix and encrypts it
+fn aes_enc(aes: &AES, chunk: &[u8]) -> [u8; 16] {
+    if chunk.len() != 16 {
+        panic!("Error: Block length must be 16!");
+    }
+
+    // The AES matrix should be column-major, i.e.
+    // 0 4  8 12
+    // 1 5  9 13
+    // 2 6 10 14
+    // 3 7 11 15
+    // state_matrix[i][j] is col i, row j, meaning that
+    // when we read in [0][0], [0][1] etc, we read column by column
+    let mut state_matrix = [[0u8; 4]; 4];
+    for i in 0..16 {
+        state_matrix[i / 4][i % 4] = chunk[i];
+    }
+
+    (aes.encrypt_block)(aes, &mut state_matrix);
+
+    let mut output = [0u8; 16];
+    for i in 0..16 {
+        output[i] = state_matrix[i / 4][i % 4];
+    }
+
+    output
 }
 
-pub fn mix_columns() {
-    unimplemented!()
+/// Encrypts one state matrix using AES
+fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
+    // The first thing we do is xor the input with round key 0
+    xor_round(state, &aes.round_keys[0..4]);
+
+    // First nine rounds run the entire permutation + round key xor
+    for i in 1..=9 {
+        substitute_bytes(state);
+        shift_rows(state);
+        mix_columns(state);
+
+        xor_round(state, &aes.round_keys[(i * 4)..(i + 1) * 4]);
+    }
+
+    // Tenth round we skip mix_columns
+    substitute_bytes(state);
+    shift_rows(state);
+    xor_round(state, &aes.round_keys[40..44]);
+}
+
+// Thanks to https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field
+fn finite_field_mult(mut a: u8, mut b: u8) -> u8 {
+    let p: u8 = 0;
+    // 0*0 = 0 (TODO: don't do this, timing attack possible)
+    if a == 0 || b == 0 {
+        0
+    } else {
+        for _ in 0..8 {
+            if b & 1 == 1 {
+                a ^= p;
+            }
+
+            b = b >> 1;
+
+            let carry: bool = b & 0x80 == 0x80;
+
+            a = a << 1;
+
+            if carry {
+                a ^= 0x1b;
+            }
+        }
+
+        p
+    }
+}
+
+fn xor_round(state: &mut [[u8; 4]; 4], round_key: &[[u8; 4]]) {
+    assert!(round_key.len() == 4);
+
+    for col in 0..4 {
+        for row in 0..4 {
+            state[col][row] ^= round_key[col][row];
+        }
+    }
+}
+
+/// Substitute all bytes in the state matrix, in place.
+fn substitute_bytes(state: &mut [[u8; 4]; 4]) {
+    for col in 0..4 {
+        for row in 0..4 {
+            state[col][row] = SBOX[state[col][row] as usize]
+        }
+    }
+}
+
+pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
+    for row in 1..4 {
+        // First element of row
+        let tmp = state[0][row];
+        for col in 0..3 {
+            // Shift row 1 by 1, row 2 by 2, and row 3 by 3
+            state[col][row] = state[(col + row) % 4][row];
+        }
+        state[3][row] = tmp;
+    }
+}
+
+pub fn mix_columns(state: &mut [[u8; 4]; 4]) {
+    // The matrix we multiply with is
+    // 2 3 1 1
+    // 1 2 3 1
+    // 1 1 2 3
+    // 3 1 1 2
+    // i.e. the sequence below shifted one step
+    // right for every row
+    let matrix_arr: [u8; 4] = [2, 3, 1, 1];
+
+    for col in 0..4 {
+        // Preserve the column since we'll be changing it
+        // in the matrix multiplication
+        let mut intact_column = [0u8; 4];
+        for row in 0..4 {
+            intact_column[row] = state[col][row];
+        }
+
+        for row in 0..4 {
+            state[col][row] = finite_field_mult(intact_column[row], matrix_arr[(row + col) % 4]);
+        }
+    }
 }
 
 fn word_xor(w1: &Word, w2: &Word) -> Word {
@@ -51,12 +180,12 @@ pub fn key_expansion_g(i: usize, word: Word) -> Word {
     let mut output_word = [0u8; 4];
 
     // Rotate left and sub the resulting byte
-    for i in 0..4 {
-        output_word[i] = substitute_bytes(word[i + 1 % 4]);
+    for idx in 0..4 {
+        output_word[idx] = SBOX[word[(idx + 1) % 4] as usize];
     }
 
-    // XOR with constant
-    output_word[0] ^= round_constants[i];
+    // XOR with constant. i-1 since round const 1 is in idx 0
+    output_word[0] ^= ROUND_CONSTANTS[i-1];
 
     output_word
 }
@@ -75,7 +204,7 @@ pub fn key_expansion(key: &[u8; 16]) -> [Word; 44] {
     }
 
     // Append round keys 1 through 10
-    for i in 4..=44 {
+    for i in 4..44 {
         // First word of every key uses g function
         if i % 4 == 0 {
             output_keys[i] = word_xor(

@@ -3,8 +3,6 @@ use std::io::{self, BufWriter, Read, Write};
 mod aes;
 
 fn main() -> io::Result<()> {
-    println!("AES Implementation coming up...");
-
     let mut buf = Vec::new();
     let mut key = [0u8; 16];
 
@@ -30,8 +28,9 @@ fn main() -> io::Result<()> {
     let chnks: Vec<&[u8]> = buf.chunks_exact(16).collect();
     let sout = std::io::stdout().lock();
     let mut bufout = BufWriter::with_capacity(buf.len(), sout);
+    let encryptor: aes::AES = aes::AES::new(round_keys);
     for c in chnks {
-        bufout.write(&aes::encrypt(&c)).unwrap();
+        bufout.write(&(encryptor.encrypt)(&encryptor, &c)).unwrap();
     }
 
     Ok(())
