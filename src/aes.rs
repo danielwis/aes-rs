@@ -132,13 +132,17 @@ fn substitute_bytes(state: &mut [[u8; 4]; 4]) {
 
 pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
     for row in 1..4 {
-        // First element of row
-        let tmp = state[0][row];
-        for col in 0..3 {
-            // Shift row 1 by 1, row 2 by 2, and row 3 by 3
-            state[col][row] = state[(col + row) % 4][row];
+        // Get a copy of the row
+        let mut curr_row = [0u8; 4];
+        for col in 0..4 {
+            curr_row[col] = state[col][row];
         }
-        state[3][row] = tmp;
+
+        // Shift row 1 by 1, row 2 by 2, and row 3 by 3,
+        // using the copy of the row.
+        for col in 0..4 {
+            state[col][row] = curr_row[(col + row) % 4];
+        }
     }
 }
 
@@ -185,7 +189,7 @@ pub fn key_expansion_g(i: usize, word: Word) -> Word {
     }
 
     // XOR with constant. i-1 since round const 1 is in idx 0
-    output_word[0] ^= ROUND_CONSTANTS[i-1];
+    output_word[0] ^= ROUND_CONSTANTS[i - 1];
 
     output_word
 }
