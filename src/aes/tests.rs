@@ -118,3 +118,26 @@ fn test_xor_with_round_key() {
     xor_with_round_key(&mut input, &round_key);
     assert_eq!(result, input);
 }
+
+#[test]
+fn test_sub_bytes() {
+    // The correct output from first xor with round key
+    // (i.e. the input to round 1)
+    let mut input: [[u8; 4]; 4] = [
+        [0x19, 0x3d, 0xe3, 0xbe],
+        [0xa0, 0xf4, 0xe2, 0x2b],
+        [0x9a, 0xc6, 0x8d, 0x2a],
+        [0xe9, 0xf8, 0x48, 0x08],
+    ];
+
+    let result = [
+        [0xd4, 0x27, 0x11, 0xae],
+        [0xe0, 0xbf, 0x98, 0xf1],
+        [0xb8, 0xb4, 0x5d, 0xe5],
+        [0x1e, 0x41, 0x52, 0x30],
+    ];
+
+    substitute_bytes(&mut input);
+
+    assert_eq!(input, result);
+}
