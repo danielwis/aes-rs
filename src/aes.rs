@@ -67,7 +67,7 @@ fn aes_enc(aes: &AES, chunk: &[u8]) -> [u8; 16] {
 /// Encrypts one state matrix using AES
 fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
     // The first thing we do is xor the input with round key 0
-    xor_round(state, &aes.round_keys[0..4]);
+    xor_with_round_key(state, &aes.round_keys[0..4]);
 
     // First nine rounds run the entire permutation + round key xor
     for i in 1..=9 {
@@ -75,13 +75,13 @@ fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
         shift_rows(state);
         mix_columns(state);
 
-        xor_round(state, &aes.round_keys[(i * 4)..(i + 1) * 4]);
+        xor_with_round_key(state, &aes.round_keys[(i * 4)..(i + 1) * 4]);
     }
 
     // Tenth round we skip mix_columns
     substitute_bytes(state);
     shift_rows(state);
-    xor_round(state, &aes.round_keys[40..44]);
+    xor_with_round_key(state, &aes.round_keys[40..44]);
 }
 
 // Thanks to https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field
@@ -111,7 +111,7 @@ fn finite_field_mult(mut a: u8, mut b: u8) -> u8 {
     }
 }
 
-fn xor_round(state: &mut [[u8; 4]; 4], round_key: &[[u8; 4]]) {
+fn xor_with_round_key(state: &mut [[u8; 4]; 4], round_key: &[[u8; 4]]) {
     assert!(round_key.len() == 4);
 
     for col in 0..4 {
