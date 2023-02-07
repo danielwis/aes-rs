@@ -218,3 +218,6 @@ pub fn key_expansion(key: &[u8; 16]) -> [Word; 44] {
 
     output_keys
 }
+
+#[cfg(test)]
+mod tests;
