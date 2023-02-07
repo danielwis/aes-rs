@@ -85,30 +85,32 @@ fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
 }
 
 // Thanks to https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field
+// Bit shifting has to be &-ed as otherwise it expands (e.g. to an u16 or u32)
 fn finite_field_mult(mut a: u8, mut b: u8) -> u8 {
-    let p: u8 = 0;
-    // 0*0 = 0 (TODO: don't do this, timing attack possible)
-    if a == 0 || b == 0 {
-        0
-    } else {
-        for _ in 0..8 {
-            if b & 1 == 1 {
-                a ^= p;
-            }
+    let mut p: u8 = 0;
 
-            b = b >> 1;
-
-            let carry: bool = b & 0x80 == 0x80;
-
-            a = a << 1;
-
-            if carry {
-                a ^= 0x1b;
-            }
+    for _ in 0..8 {
+        // 0*0 is just 0. However, this makes a timing attack possible.
+        if a == 0 || b == 0 {
+            return p;
         }
 
-        p
+        if b & 1 == 1 {
+            p ^= a;
+        }
+
+        b = (b >> 1) & 0xff;
+
+        let carry: bool = (a & 0x80) == 0x80;
+
+        a = (a << 1) & 0xff;
+
+        if carry {
+            a ^= 0x1b;
+        }
     }
+
+    return p;
 }
 
 fn xor_with_round_key(state: &mut [[u8; 4]; 4], round_key: &[[u8; 4]]) {
