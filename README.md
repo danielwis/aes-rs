@@ -66,6 +66,7 @@ For the final step in each round, we XOR this current matrix (represented now as
 We apply this permutation in nine rounds, but skip the `mix_columns` step for round 10 since it doesn't add any extra secrecy (the diffusion it provides won't propagate to another round anyway). We then, after round 10, XOR the output with round key 10. This is our output.
 
 ### Helpful resources (and a special thanks)
+- [A Graduate Course in Applied Cryptography](https://toc.cryptobook.us/) by Dan Boneh and Victor Shoup had some excellent information on the various steps of AES, as well as some optimisations...
 - [This GitHub repository](https://github.com/adrgs/rust-aes) was fantastic in helping me grasp the Rust language better in terms of byte manipulation and data representation.
 - [This Wikipedia page](https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field) was really helpful in providing an efficient method for multiplication in GF(2<sup>8</sup>) without having to "brute force" inverses.
 - [This report](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf) was great for examples and visualising the algorithm.
