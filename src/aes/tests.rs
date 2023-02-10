@@ -17,10 +17,10 @@ fn test_key_expansion_g() {
     // just asserting that the key-word 12 we got is the actual key-word 12.
 
     let wrd = [0x09, 0xcf, 0x4f, 0x3c]; // Word 3 to calculate word 4
-    assert_eq!(key_expansion_g(1, wrd), [0x8b, 0x84, 0xeb, 0x01]);
+    assert_eq!(key_expansion_g(1, &wrd), [0x8b, 0x84, 0xeb, 0x01]);
 
     let wrd2 = [0xdb, 0x0b, 0xad, 0x00]; // Word 19 to calculate word 20
-    assert_eq!(key_expansion_g(5, wrd2), [0x3b, 0x95, 0x63, 0xb9]);
+    assert_eq!(key_expansion_g(5, &wrd2), [0x3b, 0x95, 0x63, 0xb9]);
 }
 
 #[test]
