@@ -10,7 +10,7 @@ fn main() -> io::Result<()> {
     std::io::stdin().read_exact(&mut key)?;
 
     // Key expansion
-    let round_keys: [aes::Word; 44] = aes::key_expansion(&key);
+    let round_keys: [u32; 44] = aes::key_expansion(&key);
 
     // Read the rest of the input stream and add padding
     std::io::stdin().read_to_end(&mut buf)?;
