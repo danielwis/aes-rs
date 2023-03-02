@@ -1,3 +1,4 @@
+mod constants;
 pub const SBOX: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -24,6 +25,7 @@ pub struct AES {
     round_keys: [[u8; 4]; 44],
     pub encrypt: fn(&AES, &[u8]) -> [u8; 16],
     encrypt_block: fn(&AES, &mut [[u8; 4]; 4]),
+    permutation: fn(&mut [[u8; 4]; 4]),
 }
 
 impl AES {
@@ -32,6 +34,7 @@ impl AES {
             round_keys: keys,
             encrypt: aes_enc,
             encrypt_block: aes_enc_block,
+            permutation: aes_permutation,
         }
     }
 }
@@ -64,6 +67,51 @@ fn aes_enc(aes: &AES, chunk: &[u8]) -> [u8; 16] {
     output
 }
 
+fn xor_vecs_into(a: &[u8; 4], b: &[u8; 4], c: &[u8; 4], d: &[u8; 4], res: &mut [u8; 4]) {
+    for i in 0..4 {
+        res[i] = a[i] ^ b[i] ^ c[i] ^ d[i];
+    }
+}
+
+pub fn aes_permutation(state: &mut [[u8; 4]; 4]) {
+    substitute_bytes(state);
+    shift_rows(state);
+    mix_columns(state);
+}
+
+fn aes_permutation_tables(state: &mut [[u8; 4]; 4]) {
+    let state_untouched = state.clone();
+
+    xor_vecs_into(
+        &constants::PERMUTATION_TABLES[0][state_untouched[0][0] as usize],
+        &constants::PERMUTATION_TABLES[1][state_untouched[1][1] as usize],
+        &constants::PERMUTATION_TABLES[2][state_untouched[2][2] as usize],
+        &constants::PERMUTATION_TABLES[3][state_untouched[3][3] as usize],
+        &mut state[0],
+    );
+    xor_vecs_into(
+        &constants::PERMUTATION_TABLES[0][state_untouched[1][0] as usize],
+        &constants::PERMUTATION_TABLES[1][state_untouched[2][1] as usize],
+        &constants::PERMUTATION_TABLES[2][state_untouched[3][2] as usize],
+        &constants::PERMUTATION_TABLES[3][state_untouched[0][3] as usize],
+        &mut state[1],
+    );
+    xor_vecs_into(
+        &constants::PERMUTATION_TABLES[0][state_untouched[2][0] as usize],
+        &constants::PERMUTATION_TABLES[1][state_untouched[3][1] as usize],
+        &constants::PERMUTATION_TABLES[2][state_untouched[0][2] as usize],
+        &constants::PERMUTATION_TABLES[3][state_untouched[1][3] as usize],
+        &mut state[2],
+    );
+    xor_vecs_into(
+        &constants::PERMUTATION_TABLES[0][state_untouched[3][0] as usize],
+        &constants::PERMUTATION_TABLES[1][state_untouched[0][1] as usize],
+        &constants::PERMUTATION_TABLES[2][state_untouched[1][2] as usize],
+        &constants::PERMUTATION_TABLES[3][state_untouched[2][3] as usize],
+        &mut state[3],
+    );
+}
+
 /// Encrypts one state matrix using AES
 fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
     // The first thing we do is xor the input with round key 0
@@ -71,9 +119,7 @@ fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
 
     // First nine rounds run the entire permutation + round key xor
     for i in 1..=9 {
-        substitute_bytes(state);
-        shift_rows(state);
-        mix_columns(state);
+        (aes.permutation)(state);
 
         xor_with_round_key(state, &aes.round_keys[(i * 4)..(i + 1) * 4]);
     }
@@ -86,7 +132,7 @@ fn aes_enc_block(aes: &AES, state: &mut [[u8; 4]; 4]) {
 
 // Thanks to https://en.wikipedia.org/wiki/Finite_field_arithmetic#Rijndael's_(AES)_finite_field
 // Bit shifting has to be &-ed as otherwise it expands (e.g. to an u16 or u32)
-fn finite_field_mult(mut a: u8, mut b: u8) -> u8 {
+pub fn finite_field_mult(mut a: u8, mut b: u8) -> u8 {
     let mut p: u8 = 0;
 
     for _ in 0..8 {

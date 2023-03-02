@@ -184,7 +184,7 @@ fn test_mix_columns() {
 }
 
 #[test]
-fn test_finite_field_mult(){
+fn test_finite_field_mult() {
     let a = 0x53;
     let b = 0xCA;
     let p = finite_field_mult(a, b);
